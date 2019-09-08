@@ -1,358 +1,186 @@
 /**
- * demo.js
- * http://www.codrops.com
- *
- * Licensed under the MIT license.
- * http://www.opensource.org/licenses/mit-license.php
- * 
- * Copyright 2018, Codrops
- * http://www.codrops.com
- */
+* demo.js
+* http://www.codrops.com
+*
+* Licensed under the MIT license.
+* http://www.opensource.org/licenses/mit-license.php
+* 
+* Copyright 2019, Codrops
+* http://www.codrops.com
+*/
 {
-    const lineEq = (y2, y1, x2, x1, currentVal) => {
-        // y = mx + b 
-        var m = (y2 - y1) / (x2 - x1), b = y1 - m * x1;
-        return m * currentVal + b;
-    };
+    // body element
+    const body = document.body;
 
-    const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-    const getRandomFloat = (min, max) => (Math.random() * (max - min) + min).toFixed(2);
+    // helper functions
+    const MathUtils = {
+        // linear interpolation
+        lerp: (a, b, n) => (1 - n) * a + n * b,
+        // distance between two points
+        distance: (x1,y1,x2,y2) => Math.hypot(x2-x1, y2-y1)
+    }
 
-    const setRange = (obj) => {
-        for(let k in obj) {
-            if( obj[k] == undefined ) {
-                obj[k] = [0,0];
-            }
-            else if( typeof obj[k] === 'number' ) {
-                obj[k] = [-1*obj[k],obj[k]];
-            }
-        }
-    };
-
-    // from http://www.quirksmode.org/js/events_properties.html#position
-	const getMousePos = (e) => {
+    // get the mouse position
+    const getMousePos = (ev) => {
         let posx = 0;
         let posy = 0;
-		if (!e) e = window.event;
-		if (e.pageX || e.pageY) 	{
-			posx = e.pageX;
-			posy = e.pageY;
-		}
-		else if (e.clientX || e.clientY) 	{
-			posx = e.clientX + document.body.scrollLeft + document.documentElement.scrollLeft;
-			posy = e.clientY + document.body.scrollTop + document.documentElement.scrollTop;
-		}
-		return { x : posx, y : posy }
-	};
+        if (!ev) ev = window.event;
+        if (ev.pageX || ev.pageY) {
+            posx = ev.pageX;
+            posy = ev.pageY;
+        }
+        else if (ev.clientX || ev.clientY) 	{
+            posx = ev.clientX + body.scrollLeft + docEl.scrollLeft;
+            posy = ev.clientY + body.scrollTop + docEl.scrollTop;
+        }
+        return {x: posx, y: posy};
+    }
+
+    // mousePos: current mouse position
+    // cacheMousePos: previous mouse position
+    // lastMousePos: last last recorded mouse position (at the time the last image was shown)
+    let mousePos = lastMousePos = cacheMousePos = {x: 0, y: 0};
     
-    class Item {
-		constructor(el, options) {
-            this.DOM = {el: el};
+    // update the mouse position
+    window.addEventListener('mousemove', ev => mousePos = getMousePos(ev));
+    
+    // gets the distance from the current mouse position to the last recorded mouse position
+    const getMouseDistance = () => MathUtils.distance(mousePos.x,mousePos.y,lastMousePos.x,lastMousePos.y);
 
-            this.options = {   
-                image: {
-                    translation : {x: -10, y: -10, z: 0},
-                    rotation : {x: 0, y: 0, z: 0}
-                },
-                title: {
-                    translation : {x: 20, y: 10, z: 0}
-                },
-                text: {
-                    translation : {x: 20, y: 50, z: 0},
-                    rotation : {x: 0, y: 0, z: -20}
-                },
-                deco: {
-                    translation : {x: -20, y: 0, z: 0},
-                    rotation : {x: 0, y: 0, z: 3}
-                },
-                shadow: {
-                    translation : {x: 30, y: 20, z: 0},
-                    rotation : {x: 0, y: 0, z: -2},
-                    reverseAnimation : {duration: 2, ease: 'Back.easeOut'}
-                },
-                content: {
-                    translation : {x: 5, y: 3, z: 0}
-                }
-            };
-            Object.assign(this.options, options);
-
-            this.DOM.animatable = {};
-            this.DOM.animatable.image = this.DOM.el.querySelector('.box__img');
-            this.DOM.animatable.title = this.DOM.el.querySelector('.box__title');
-            this.DOM.animatable.text = this.DOM.el.querySelector('.box__text');
-            this.DOM.animatable.deco = this.DOM.el.querySelector('.box__deco');
-            this.DOM.animatable.shadow = this.DOM.el.querySelector('.box__shadow');
-            this.DOM.animatable.content = this.DOM.el.querySelector('.box__content');
-            
-            this.initEvents();
-        }
-        initEvents() { 
-            let enter = false;
-            this.mouseenterFn = () => {
-                if ( enter ) {
-                    enter = false;
-                };
-                clearTimeout(this.mousetime);
-                this.mousetime = setTimeout(() => enter = true, 40);
-            };
-            this.mousemoveFn = ev => requestAnimationFrame(() => {
-                if ( !enter ) return;
-                this.tilt(ev);
-            });
-            this.mouseleaveFn = (ev) => requestAnimationFrame(() => {
-                if ( !enter || !allowTilt ) return;
-                enter = false;
-                clearTimeout(this.mousetime);
-
-                for (let key in this.DOM.animatable ) {
-                    if( this.DOM.animatable[key] == undefined || this.options[key] == undefined ) {continue;}
-                    TweenMax.to(this.DOM.animatable[key],
-                        this.options[key].reverseAnimation != undefined ? this.options[key].reverseAnimation.duration || 0 : 1.5, {
-                        ease: this.options[key].reverseAnimation != undefined ? this.options[key].reverseAnimation.ease || 'Power2.easeOut' : 'Power2.easeOut',
-                        x: 0,
-                        y: 0,
-                        z: 0,
-                        rotationX: 0,
-                        rotationY: 0,
-                        rotationZ: 0
-                    });
-                }
-            });
-            this.DOM.el.addEventListener('mouseenter', this.mouseenterFn);
-            this.DOM.el.addEventListener('mousemove', this.mousemoveFn);
-            this.DOM.el.addEventListener('mouseleave', this.mouseleaveFn);
-        }
-        tilt(ev) {
-            if ( !allowTilt ) return;
-            const mousepos = getMousePos(ev);
-            // Document scrolls.
-            const docScrolls = {
-                left : document.body.scrollLeft + document.documentElement.scrollLeft, 
-                top : document.body.scrollTop + document.documentElement.scrollTop
-            };
-            const bounds = this.DOM.el.getBoundingClientRect();
-            // Mouse position relative to the main element (this.DOM.el).
-            const relmousepos = { 
-                x : mousepos.x - bounds.left - docScrolls.left, 
-                y : mousepos.y - bounds.top - docScrolls.top 
-            };
-            
-            // Movement settings for the animatable elements.
-            for (let key in this.DOM.animatable) {
-                if ( this.DOM.animatable[key] == undefined || this.options[key] == undefined ) {
-                    continue;
-                }
-                
-                let t = this.options[key] != undefined ? this.options[key].translation || {x:0,y:0,z:0} : {x:0,y:0,z:0},
-                    r = this.options[key] != undefined ? this.options[key].rotation || {x:0,y:0,z:0} : {x:0,y:0,z:0};
-
-                setRange(t);
-                setRange(r);
-                
-                const transforms = {
-                    translation : {
-                        x: (t.x[1]-t.x[0])/bounds.width*relmousepos.x + t.x[0],
-                        y: (t.y[1]-t.y[0])/bounds.height*relmousepos.y + t.y[0],
-                        z: (t.z[1]-t.z[0])/bounds.height*relmousepos.y + t.z[0],
-                    },
-                    rotation : {
-                        x: (r.x[1]-r.x[0])/bounds.height*relmousepos.y + r.x[0],
-                        y: (r.y[1]-r.y[0])/bounds.width*relmousepos.x + r.y[0],
-                        z: (r.z[1]-r.z[0])/bounds.width*relmousepos.x + r.z[0]
-                    }
-                };
-
-                TweenMax.to(this.DOM.animatable[key], 1.5, {
-                    ease: 'Power1.easeOut',
-                    x: transforms.translation.x,
-                    y: transforms.translation.y,
-                    z: transforms.translation.z,
-                    rotationX: transforms.rotation.x,
-                    rotationY: transforms.rotation.y,
-                    rotationZ: transforms.rotation.z
-                });
-            }
-        }
-    }
-
-    class Overlay {
-        constructor() {
-            this.DOM = {el: document.querySelector('.overlay')};
-            this.DOM.reveal = this.DOM.el.querySelector('.overlay__reveal');
-            this.DOM.items = this.DOM.el.querySelectorAll('.overlay__item');
-            this.DOM.close = this.DOM.el.querySelector('.overlay__close');
-        }
-        show(contentItem) {
-            this.contentItem = contentItem;
-            this.DOM.el.classList.add('overlay--open');
-            // show revealer
-            TweenMax.to(this.DOM.reveal, .5, {
-                ease: 'Power1.easeInOut',
-                x: '0%',
-                onComplete: () => {
-                    // hide scroll
-                    document.body.classList.add('preview-open');
-                    // show preview
-                    this.revealItem(contentItem);
-                    // hide revealer
-                    TweenMax.to(this.DOM.reveal, .5, {
-                        delay: 0.2,
-                        ease: 'Power3.easeOut',
-                        x: '-100%'
-                    });
-
-                    this.DOM.close.style.opacity = 1;
-                }
-            });
-        }
-        revealItem() {
-            this.contentItem.style.opacity = 1;
-
-            let itemElems = [];
-            itemElems.push(this.contentItem.querySelector('.box__shadow'));
-            itemElems.push(this.contentItem.querySelector('.box__img'));
-            itemElems.push(this.contentItem.querySelector('.box__title'));
-            itemElems.push(this.contentItem.querySelector('.box__text'));
-            itemElems.push(this.contentItem.querySelector('.box__deco'));
-            itemElems.push(this.contentItem.querySelector('.overlay__content'));
-            
-            for (let el of itemElems) {
-                if ( el == null ) continue;
-                const bounds = el.getBoundingClientRect();
-                const win = {width: window.innerWidth, height: window.innerHeight};
-                TweenMax.to(el, lineEq(0.8, 1.2, win.width, 0, Math.abs(bounds.left+bounds.width - win.width)), {
-                    ease: 'Expo.easeOut',
-                    delay: 0.2,
-                    startAt: {
-                        x: `${lineEq(0, 800, win.width, 0, Math.abs(bounds.left+bounds.width - win.width))}`,
-                        y: `${lineEq(-100, 100, win.height, 0, Math.abs(bounds.top+bounds.height - win.height))}`,
-                        rotationZ: `${lineEq(5, 30, 0, win.width, Math.abs(bounds.left+bounds.width - win.width))}`
-                    },
-                    x: 0,
-                    y: 0,
-                    rotationZ: 0
-                });
-            }
-        }
-        hide() {
-            this.DOM.el.classList.remove('overlay--open');
-
-            // show revealer
-            TweenMax.to(this.DOM.reveal, .5, {
-                //delay: 0.15,
-                ease: 'Power3.easeOut',
-                x: '0%',
-                onComplete: () => {
-                    this.DOM.close.style.opacity = 0;
-                    // show scroll
-                    document.body.classList.remove('preview-open');
-                    // hide preview
-                    this.contentItem.style.opacity = 0;
-                    // hide revealer
-                    TweenMax.to(this.DOM.reveal, .5, {
-                        delay: 0,
-                        ease: 'Power3.easeOut',
-                        x: '100%'
-                    });
-                }
-            });
-        }
-    }
-
-    class Grid {
+    class Image {
         constructor(el) {
             this.DOM = {el: el};
-            this.items = [];
-            Array.from(this.DOM.el.querySelectorAll('a.grid__item')).forEach((item) => {
-                const itemObj = new Item(item);
-                this.items.push(itemObj);
-                if ( !item.classList.contains('grid__item--noclick') ) {
-                    itemObj.DOM.el.addEventListener('click', (ev) => {
-                        ev.preventDefault();
-                        this.openItem(document.querySelector(item.getAttribute('href')));
-                    });
-                }
-            });
-
-            this.overlay = new Overlay();
-            this.overlay.DOM.close.addEventListener('click', () => this.closeItem());
+            // image deafult styles
+            this.defaultStyle = {
+                scale: 1,
+                x: 0,
+                y: 0,
+                opacity: 0
+            };
+            // get sizes/position
+            this.getRect();
+            // init/bind events
+            this.initEvents();
         }
-        openItem(contentItem) {
-            if ( this.isPreviewOpen ) return;
-            this.isPreviewOpen = true;
-            allowTilt = false;
-            this.overlay.show(contentItem);
-            // "explode" grid..
-            for (let item of this.items) {
-                for (let key in item.DOM.animatable) {
-                    const el = item.DOM.animatable[key];
-                    if ( el ) {
-                        const bounds = el.getBoundingClientRect();
-                        
-                        let x;
-                        let y;
-                        const win = {width: window.innerWidth, height: window.innerHeight};
-
-                        if ( bounds.top + bounds.height/2 < win.height/2 - win.height*.1 ) {
-                            //x = getRandomInt(-250,-50);
-                            //y = getRandomInt(20,100)*-1;
-                            x = -1*lineEq(20, 600, 0, win.width, Math.abs(bounds.left+bounds.width - win.width));
-                            y = -1*lineEq(20, 600, 0, win.width, Math.abs(bounds.left+bounds.width - win.width));
-                        }
-                        else if ( bounds.top + bounds.height/2 > win.height/2 + win.height*.1 ) {
-                            //x = getRandomInt(-250,-50);
-                            //y = getRandomInt(20,100);
-                            x = -1*lineEq(20, 600, 0, win.width, Math.abs(bounds.left+bounds.width - win.width));
-                            y = lineEq(20, 600, 0, win.width, Math.abs(bounds.left+bounds.width - win.width))
-                        }
-                        else {
-                            //x = getRandomInt(300,700)*-1;
-                            x = -1*lineEq(10, 700, 0, win.width, Math.abs(bounds.left+bounds.width - win.width));
-                            y = getRandomInt(-25,25);
-                        }
-                        
-                        TweenMax.to(el, 0.4, {
-                            ease: 'Power3.easeOut',
-                            delay: lineEq(0, 0.3, 0, win.width, Math.abs(bounds.left+bounds.width - win.width)),
-                            x: x,
-                            y: y,
-                            rotationZ: getRandomInt(-10,10),
-                            opacity: 0
-                        }); 
-                    }
-                }
-            }
+        initEvents() {
+            // on resize get updated sizes/position
+            window.addEventListener('resize', () => this.resize());
         }
-        closeItem() {
-            if ( !this.isPreviewOpen ) return;
-            this.isPreviewOpen = false;
-            this.overlay.hide();
-            
-            for (let item of this.items) {
-                for (let key in item.DOM.animatable) {
-                    const el = item.DOM.animatable[key];
-                    if ( el ) {
-                        const bounds = el.getBoundingClientRect();
-                        const win = {width: window.innerWidth};
-                        TweenMax.to(el, 0.6, {
-                            ease: 'Expo.easeOut',
-                            delay: .55 + lineEq(0, 0.2, 0, win.width, Math.abs(bounds.left+bounds.width - win.width)),
-                            x: 0,
-                            y: 0,
-                            rotationZ: 0,
-                            opacity: 1
-                        }); 
-                    }
-                }
-            }
-
-            allowTilt = true;
+        resize() {
+            // reset styles
+            TweenMax.set(this.DOM.el, this.defaultStyle);
+            // get sizes/position
+            this.getRect();
+        }
+        getRect() {
+            this.rect = this.DOM.el.getBoundingClientRect();
+        }
+        isActive() {
+            // check if image is animating or if it's visible
+            return TweenMax.isTweening(this.DOM.el) || this.DOM.el.style.opacity != 0;
         }
     }
 
-    let allowTilt = true;
-    new Grid(document.querySelector('.grid'));
+    class ImageTrail {
+        constructor() {
+            // images container
+            this.DOM = {content: document.querySelector('.content')};
+            // array of Image objs, one per image element
+            this.images = [];
+            [...this.DOM.content.querySelectorAll('img')].forEach(img => this.images.push(new Image(img)));
+            // total number of images
+            this.imagesTotal = this.images.length;
+            // upcoming image index
+            this.imgPosition = 0;
+            // zIndex value to apply to the upcoming image
+            this.zIndexVal = 1;
+            // mouse distance required to show the next image
+            this.threshold = 100;
+            // render the images
+            requestAnimationFrame(() => this.render());
+        }
+        render() {
+            // get distance between the current mouse position and the position of the previous image
+            let distance = getMouseDistance();
+            // cache previous mouse position
+            cacheMousePos.x = MathUtils.lerp(cacheMousePos.x || mousePos.x, mousePos.x, 0.1);
+            cacheMousePos.y = MathUtils.lerp(cacheMousePos.y || mousePos.y, mousePos.y, 0.1);
 
-    // Preload all the images in the page..
-    imagesLoaded(document.querySelectorAll('.box__img'), () => document.body.classList.remove('loading'));
+            // if the mouse moved more than [this.threshold] then show the next image
+            if ( distance > this.threshold ) {
+                this.showNextImage();
+
+                ++this.zIndexVal;
+                this.imgPosition = this.imgPosition < this.imagesTotal-1 ? this.imgPosition+1 : 0;
+                
+                lastMousePos = mousePos;
+            }
+
+            // check when mousemove stops and all images are inactive (not visible and not animating)
+            let isIdle = true;
+            for (let img of this.images) {
+                if ( img.isActive() ) {
+                    isIdle = false;
+                    break;
+                }
+            }
+            // reset z-index initial value
+            if ( isIdle && this.zIndexVal !== 1 ) {
+                this.zIndexVal = 1;
+            }
+
+            // loop..
+            requestAnimationFrame(() => this.render());
+        }
+        showNextImage() {
+            // show image at position [this.imgPosition]
+            const img = this.images[this.imgPosition];
+            // kill any tween on the image
+            TweenMax.killTweensOf(img.DOM.el);
+
+            new TimelineMax()
+            // show the image
+            .set(img.DOM.el, {
+                startAt: {opacity: 0, scale: 1},
+                opacity: 1,
+                scale: 1,
+                zIndex: this.zIndexVal,
+                x: cacheMousePos.x - img.rect.width/2,
+                y: cacheMousePos.y - img.rect.height/2
+            }, 0)
+            // animate position
+            .to(img.DOM.el, 0.9, {
+                ease: Expo.easeOut,
+                x: mousePos.x - img.rect.width/2,
+                y: mousePos.y - img.rect.height/2
+            }, 0)
+            // then make it disappear
+            .to(img.DOM.el, 1, {
+                ease: Power1.easeOut,
+                opacity: 0
+            }, 0.4)
+            // scale down the image
+            .to(img.DOM.el, 1, {
+                ease: Quint.easeOut,
+                scale: 0.2
+            }, 0.4);
+        }
+    }
+
+    /***********************************/
+    /********** Preload stuff **********/
+
+    // Preload images
+    const preloadImages = () => {
+        return new Promise((resolve, reject) => {
+            imagesLoaded(document.querySelectorAll('.content__img'), resolve);
+        });
+    };
+    
+    // And then..
+    preloadImages().then(() => {
+        // Remove the loader
+        document.body.classList.remove('loading');
+        new ImageTrail();
+    });
 }
